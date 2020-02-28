@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Linux CloudWatch CPU Alarms
+
+Parameters:
+
+  instanceid:
+    Description: "Choose an instance id"
+    Type: AWS::EC2::Instance::Id
+
+  instancename:
+    Description: "Please provide EC2 instance name"
+    Type: "String"
+    MinLength: '1'
+    MaxLength: '50'
+
+  warningsnsarn:
+    Description: "Please provide an ARN of SNS topic - WARNING Type"
+    Type: "String"
+
+  volume:
+    Description: "Provide disk's/folder's name (ex.: xvda1)"
+    Type: "String"
+    Default: "xvda1"
+
+  path:
+    Description: "Provide path"
+    Type: "String"
+    Default: "/"
+
+  fstype:
+    Description: "Choose fstype - ext4 or xfs -> Ubuntu and AmazonLinux use ext4, CentOS use xfs"
+    Type: String
+    AllowedValues:
+      - ext4
+      - xfs
+      - btrfs
+    ConstraintDescription: You must specify ext4,xfs,or btrfs.
+
+Resources:
+
+  DiskSpaceAlarmWARNING:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${instancename} - ${instanceid} - over 85% of ${volume} volume space is in use"
+      AlarmActions:
+      - !Ref warningsnsarn
+      OKActions:
+      - !Ref warningsnsarn
+      MetricName: "disk_used_percent"
+      Namespace: CWAgent
+      Statistic: Average
+      Period: '300'
+      EvaluationPeriods: '1'
+      Threshold: '85'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref instanceid
+      - Name: device
+        Value: !Ref volume
+      - Name: path
+        Value: !Ref path
+      - Name: fstype
+        Value: !Ref fstype
+        
+
+  CPUAlarmWARNING: 
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${instancename} - ${instanceid} - High CPU Usage 85%"
+      AlarmActions:
+      - !Ref warningsnsarn
+      OKActions:
+      - !Ref warningsnsarn
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: '900'
+      EvaluationPeriods: '1'
+      Threshold: '85'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref instanceid
+
+  MemoryAlarmWARNING:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${instancename} - ${instanceid} - High Memory Usage 85%"
+      AlarmActions:
+      - !Ref warningsnsarn
+      OKActions:
+      - !Ref warningsnsarn
+      MetricName: "mem_used_percent"
+      Namespace: CWAgent
+      Statistic: Average
+      Period: '900'
+      EvaluationPeriods: '1'
+      Threshold: '85'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref instanceid
+
+  SystemStatusAlarmWARNING:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${instancename} - ${instanceid} - instance recovery process has been triggered because of failed System Status Check"
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Minimum
+      Period: '60'
+      EvaluationPeriods: '2'
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: '0'
+      AlarmActions:
+      - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      - !Ref warningsnsarn
+      OKActions:
+      - !Ref warningsnsarn
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref instanceid
+
+
+
+
+
+
+-------------------------------------------------
+
+NETWORK UTILIZATION
+
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  InstanceId:
+    Description: Choose an instance id
+    Type: 'AWS::EC2::Instance::Id'
+  Topic:
+    Description: Please provide an ARN of SNS topic - WARNING Type
+    Type: String
+Resources:
+  NetworkUtilizationTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'EC2 High Network Utilization'
+      Metrics:
+      - Id: in
+        Label: NetworkIn
+        MetricStat:
+          Metric:
+            Namespace: 'AWS/EC2'
+            MetricName: NetworkIn
+            Dimensions:
+            - Name: InstanceId
+              Value: !Ref InstanceId
+          Period: 300
+          Stat: Sum
+          Unit: Bytes
+        ReturnData: false
+      - Id: out
+        Label: NetworkOut
+        MetricStat:
+          Metric:
+            Namespace: 'AWS/EC2'
+            MetricName: NetworkOut
+            Dimensions:
+            - Name: InstanceId
+              Value: !Ref InstanceId
+          Period: 300
+          Stat: Sum
+          Unit: Bytes
+        ReturnData: false
+      - Id: total
+        Label: 'NetworkTotal'
+        Expression: '(in+out)/300/1000/1000/1000*8' 
+        ReturnData: true
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 12
+      DatapointsToAlarm: 8
+      Threshold: '80'
+      AlarmActions:
+      - !Ref Topic
+      OKActions:
+      - !Ref Topic
+
+
+----------------------------------------------------------

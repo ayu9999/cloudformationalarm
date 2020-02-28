@@ -1,0 +1,57 @@
+FOR NETWORK UTILIZATION
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Linux CloudWatch NetworkUtilization Alarms
+
+Parameters:
+  InstanceId:
+    Description: Choose an instance id
+    Type: 'AWS::EC2::Instance::Id'
+  warningsnsarn:
+    Description: "Please provide an ARN of SNS topic - WARNING Type"
+    Type: "String"
+
+Resources:
+  NetworkUtilizationTooHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'EC2 High Network Utilization'
+      Metrics:
+      - Id: in
+        Label: NetworkIn
+        MetricStat:
+          Metric:
+            Namespace: 'AWS/EC2'
+            MetricName: NetworkIn
+            Dimensions:
+            - Name: InstanceId
+              Value: !Ref InstanceId
+          Period: 300
+          Stat: Sum
+          Unit: Bytes
+        ReturnData: false
+      - Id: out
+        Label: NetworkOut
+        MetricStat:
+          Metric:
+            Namespace: 'AWS/EC2'
+            MetricName: NetworkOut
+            Dimensions:
+            - Name: InstanceId
+              Value: !Ref InstanceId
+          Period: 300
+          Stat: Sum
+          Unit: Bytes
+        ReturnData: false
+      - Id: total
+        Label: 'NetworkTotal'
+        Expression: '(in+out)/300/1000/1000/1000*8' 
+        ReturnData: true
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 12
+      DatapointsToAlarm: 8
+      Threshold: '80'
+      AlarmActions:
+      - !Ref warningsnsarn
+      OKActions:
+      - !Ref warningsnsarn

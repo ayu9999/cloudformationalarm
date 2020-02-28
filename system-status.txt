@@ -1,0 +1,42 @@
+FOR SYSTEM STATUS CHECK
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Linux CloudWatch CPU Alarms
+
+Parameters:
+
+  instanceid:
+    Description: "Choose an instance id"
+    Type: AWS::EC2::Instance::Id
+
+  instancename:
+    Description: "Please provide EC2 instance name"
+    Type: "String"
+    MinLength: '1'
+    MaxLength: '50'
+
+  warningsnsarn:
+    Description: "Please provide an ARN of SNS topic - WARNING Type"
+    Type: "String"
+Resources:
+
+  SystemStatusAlarmWARNING:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: !Sub "${instancename} - ${instanceid} - instance recovery process has been triggered because of failed System Status Check"
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Minimum
+      Period: '60'
+      EvaluationPeriods: '2'
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: '0'
+      AlarmActions:
+      - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      - !Ref warningsnsarn
+      OKActions:
+      - !Ref warningsnsarn
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref instanceid
